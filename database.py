@@ -343,8 +343,8 @@ class DatabaseManager:
                     etat_endoscope, nature_panne, created_by)
                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
                 (nom_operateur, endoscope, numero_serie, medecin_responsable,
-                 date_desinfection, type_desinfection, cycle, test_etancheite,
-                 heure_debut, heure_fin, procedure_medicale, salle, type_acte,
+                 str(date_desinfection), type_desinfection, cycle, test_etancheite,
+                 str(heure_debut), str(heure_fin), procedure_medicale, salle, type_acte,
                  etat_endoscope, nature_panne, created_by)
             )
             conn.commit()

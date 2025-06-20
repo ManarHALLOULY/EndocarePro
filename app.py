@@ -498,11 +498,10 @@ def show_sterilization_interface():
             
             with col2:
                 st.write("**⏰ Horaires**")
-                heure_debut = st.time_input("Heure de début*")
-                heure_fin = st.time_input("Heure de fin*")
+                heure_debut = st.text_input("Heure de début* (HH:MM)", placeholder="14:30")
+                heure_fin = st.text_input("Heure de fin* (HH:MM)", placeholder="15:45")
                 
-                st.write("**🏥 Procédure Médicale**")
-                procedure_medicale = st.text_input("Procédure médicale*")
+                st.write("**🏥 Informations Médicales**")
                 salle = st.text_input("Salle*")
                 type_acte = st.text_input("Type d'acte*")
                 
@@ -514,22 +513,30 @@ def show_sterilization_interface():
             
             if st.form_submit_button("📝 Enregistrer Rapport de Stérilisation"):
                 required_fields = [nom_operateur, endoscope, numero_serie, medecin_responsable, 
-                                 procedure_medicale, salle, type_acte]
+                                 salle, type_acte, heure_debut, heure_fin]
                 
                 if all(required_fields):
                     if etat_endoscope == 'en panne' and not nature_panne:
                         st.error("Veuillez spécifier la nature de la panne")
                     else:
-                        if db.add_sterilisation_report(
-                            nom_operateur, endoscope, numero_serie, medecin_responsable,
-                            date_desinfection, type_desinfection, cycle, test_etancheite,
-                            heure_debut, heure_fin, procedure_medicale, salle, type_acte,
-                            etat_endoscope, nature_panne, get_username()
-                        ):
-                            st.success("Rapport de stérilisation enregistré avec succès!")
-                            st.rerun()
-                        else:
-                            st.error("Erreur lors de l'enregistrement")
+                        # Validate time format
+                        try:
+                            # Convert text time to proper format for database
+                            if ":" not in heure_debut or ":" not in heure_fin:
+                                st.error("Format d'heure invalide. Utilisez HH:MM (ex: 14:30)")
+                            else:
+                                if db.add_sterilisation_report(
+                                    nom_operateur, endoscope, numero_serie, medecin_responsable,
+                                    date_desinfection, type_desinfection, cycle, test_etancheite,
+                                    heure_debut, heure_fin, "N/A", salle, type_acte,
+                                    etat_endoscope, nature_panne, get_username()
+                                ):
+                                    st.success("Rapport de stérilisation enregistré avec succès!")
+                                    st.rerun()
+                                else:
+                                    st.error("Erreur lors de l'enregistrement - Vérifiez le format des données")
+                        except Exception as e:
+                            st.error(f"Erreur de format: {str(e)}")
                 else:
                     st.error("Veuillez remplir tous les champs obligatoires (*)")
     
@@ -572,10 +579,14 @@ def show_sterilization_interface():
                             st.write(f"**Désinfection:** {report['type_desinfection']} - {report['cycle']}")
                             st.write(f"**Test étanchéité:** {report['test_etancheite']}")
                             st.write(f"**Horaires:** {report['heure_debut']} - {report['heure_fin']}")
-                            st.write(f"**Procédure:** {report['procedure_medicale']} (Salle: {report['salle']})")
+                            st.write(f"**Salle:** {report['salle']}")
                             st.write(f"**État:** {report['etat_endoscope']}")
-                            if report['nature_panne']:
-                                st.write(f"**Nature panne:** {report['nature_panne']}")
+                            try:
+                                nature_panne = str(report['nature_panne'])
+                                if nature_panne not in ['nan', 'None', '']:
+                                    st.write(f"**Nature panne:** {nature_panne}")
+                            except:
+                                pass
                         
                         with col2:
                             can_modify = db.can_user_modify_sterilisation_report(get_user_role(), report['id'], get_username())
