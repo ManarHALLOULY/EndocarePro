@@ -326,3 +326,136 @@ class DatabaseManager:
             return stats
         finally:
             conn.close()
+    
+    def add_sterilisation_report(self, nom_operateur, endoscope, numero_serie, medecin_responsable,
+                                date_desinfection, type_desinfection, cycle, test_etancheite,
+                                heure_debut, heure_fin, procedure_medicale, salle, type_acte,
+                                etat_endoscope, nature_panne, created_by):
+        """Add sterilization report"""
+        conn = self.get_connection()
+        try:
+            cursor = conn.cursor()
+            cursor.execute(
+                """INSERT INTO sterilisation_reports 
+                   (nom_operateur, endoscope, numero_serie, medecin_responsable,
+                    date_desinfection, type_desinfection, cycle, test_etancheite,
+                    heure_debut, heure_fin, procedure_medicale, salle, type_acte,
+                    etat_endoscope, nature_panne, created_by)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                (nom_operateur, endoscope, numero_serie, medecin_responsable,
+                 date_desinfection, type_desinfection, cycle, test_etancheite,
+                 heure_debut, heure_fin, procedure_medicale, salle, type_acte,
+                 etat_endoscope, nature_panne, created_by)
+            )
+            conn.commit()
+            return True
+        except Exception as e:
+            print(f"Error adding sterilization report: {e}")
+            return False
+        finally:
+            conn.close()
+    
+    def get_all_sterilisation_reports(self):
+        """Get all sterilization reports"""
+        conn = self.get_connection()
+        try:
+            return pd.read_sql_query(
+                """SELECT * FROM sterilisation_reports 
+                   ORDER BY date_desinfection DESC, created_at DESC""",
+                conn
+            )
+        finally:
+            conn.close()
+    
+    def get_user_sterilisation_reports(self, username):
+        """Get sterilization reports created by specific user"""
+        conn = self.get_connection()
+        try:
+            return pd.read_sql_query(
+                """SELECT * FROM sterilisation_reports 
+                   WHERE created_by = ? 
+                   ORDER BY date_desinfection DESC""",
+                conn, params=[username]
+            )
+        finally:
+            conn.close()
+    
+    def update_sterilisation_report(self, report_id, **kwargs):
+        """Update sterilization report"""
+        conn = self.get_connection()
+        try:
+            cursor = conn.cursor()
+            set_clause = ", ".join([f"{key} = ?" for key in kwargs.keys()])
+            values = list(kwargs.values()) + [report_id]
+            
+            cursor.execute(
+                f"UPDATE sterilisation_reports SET {set_clause}, updated_at = CURRENT_TIMESTAMP WHERE id = ?",
+                values
+            )
+            conn.commit()
+            return cursor.rowcount > 0
+        except Exception as e:
+            print(f"Error updating sterilization report: {e}")
+            return False
+        finally:
+            conn.close()
+    
+    def delete_sterilisation_report(self, report_id):
+        """Delete sterilization report"""
+        conn = self.get_connection()
+        try:
+            cursor = conn.cursor()
+            cursor.execute("DELETE FROM sterilisation_reports WHERE id = ?", (report_id,))
+            conn.commit()
+            return cursor.rowcount > 0
+        except Exception as e:
+            print(f"Error deleting sterilization report: {e}")
+            return False
+        finally:
+            conn.close()
+    
+    def can_user_modify_endoscope(self, user_role, endoscope_id, username):
+        """Check if user can modify endoscope"""
+        if user_role == 'admin':
+            return True
+        if user_role == 'biomedical':
+            return True  # Biomedical engineers can modify all endoscopes
+        return False
+    
+    def can_user_modify_usage_report(self, user_role, report_id, username):
+        """Check if user can modify usage report"""
+        if user_role == 'admin':
+            return True
+        if user_role == 'biomedical':
+            return True  # Biomedical engineers can modify all reports
+        
+        # Sterilization agents can only modify their own reports
+        if user_role == 'sterilisation':
+            conn = self.get_connection()
+            try:
+                cursor = conn.cursor()
+                cursor.execute("SELECT created_by FROM usage_reports WHERE id = ?", (report_id,))
+                result = cursor.fetchone()
+                return result and result[0] == username
+            finally:
+                conn.close()
+        return False
+    
+    def can_user_modify_sterilisation_report(self, user_role, report_id, username):
+        """Check if user can modify sterilization report"""
+        if user_role == 'admin':
+            return True
+        if user_role == 'biomedical':
+            return True  # Biomedical engineers can modify all sterilization reports
+        
+        # Sterilization agents can only modify their own reports
+        if user_role == 'sterilisation':
+            conn = self.get_connection()
+            try:
+                cursor = conn.cursor()
+                cursor.execute("SELECT created_by FROM sterilisation_reports WHERE id = ?", (report_id,))
+                result = cursor.fetchone()
+                return result and result[0] == username
+            finally:
+                conn.close()
+        return False

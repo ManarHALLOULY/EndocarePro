@@ -1,0 +1,77 @@
+L’application comporte trois types d’utilisateurs avec des droits spécifiques :
+
+👨‍💼 Admin : peut ajouter, modifier, supprimer tous les éléments de la base de données y compris les utilisateurs.
+
+🧑‍🔧 Ingénieur Biomédical : peut ajouter, modifier, supprimer les données dans le module Inventaire et dans Stérilisation (désinfection).
+
+🧼 Agent de Stérilisation : peut ajouter, modifier, supprimer les données du module de désinfection / archivage.
+
+⚠️ Problèmes actuels :
+Quand un biomedical engineer ou agent de stérilisation tente de modifier ou supprimer, des erreurs s’affichent :
+
+“Erreur lors de la suppression”
+
+“Erreur lors de la mise à jour”
+Ils devraient pourtant avoir ces droits. Merci de corriger la gestion des permissions et les erreurs liées.
+
+📦 Structure des données à respecter dans la table sterilisation_reports
+1. 🧾 Informations Générales
+nom_operateur
+
+endoscope
+
+numero_serie
+
+medecin_responsable
+
+2. 💧 Désinfection
+(niveau de désinfection avec sous-champs)
+
+date_desinfection
+
+type_desinfection → manuel / automatique
+
+cycle → complet / incomplet
+
+test_etancheite → réussi / échoué
+
+heure_debut
+
+heure_fin
+
+3. 🏥 Procédure Médicale
+procedure_medicale
+
+salle
+
+type_acte
+
+4. ⚙️ État d'utilisation
+etat_endoscope → fonctionnel / en panne
+
+nature_panne (optionnel si en panne)
+
+🔧 Ce que je souhaite :
+Une table SQL bien structurée (init.sql ou équivalent) avec ces champs correctement organisés.
+
+La gestion des permissions corrigée dans l’application :
+
+L’admin peut tout modifier.
+
+Le biomédical peut modifier/détruire l'inventaire et les rapports de stérilisation.
+
+L’agent de stérilisation peut modifier/détruire les archives de désinfection uniquement.
+
+Une gestion des erreurs claire :
+
+Si un utilisateur n’a pas les droits : “❌ Vous n’avez pas l’autorisation de modifier cet élément.”
+
+Sinon : afficher la vraie erreur SQL ou logique (log ou alert visible).
+
+Interface en Streamlit permettant :
+
+L’ajout des rapports de stérilisation
+
+La visualisation en tableau avec filtre par date, état ou opérateur
+
+L’édition/suppression conditionnée au rôle utilisateur
