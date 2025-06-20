@@ -258,19 +258,41 @@ def show_admin_interface():
         with col2:
             st.write("**Accès Complet aux Données**")
             
-            # Display all endoscopes
+            # Admin individual record management
+            st.write("**Gestion Individuelle des Enregistrements**")
+            
+            # Endoscopes management
             endoscopes_df = db.get_all_endoscopes()
             if not endoscopes_df.empty:
                 st.write(f"**Endoscopes ({len(endoscopes_df)} enregistrements):**")
-                st.dataframe(endoscopes_df, use_container_width=True)
+                
+                for idx, endoscope in endoscopes_df.iterrows():
+                    col1, col2 = st.columns([4, 1])
+                    with col1:
+                        st.write(f"📱 {endoscope['designation']} - {endoscope['numero_serie']} ({endoscope['etat']})")
+                    with col2:
+                        if st.button("🗑️ Supprimer", key=f"admin_del_endo_{endoscope['id']}"):
+                            if db.delete_endoscope(endoscope['id']):
+                                st.success("Endoscope supprimé!")
+                                st.rerun()
+                st.divider()
             else:
                 st.info("Aucun endoscope en base")
             
-            # Display all usage reports
-            reports_df = db.get_all_usage_reports()
-            if not reports_df.empty:
-                st.write(f"**Rapports d'usage ({len(reports_df)} enregistrements):**")
-                st.dataframe(reports_df, use_container_width=True)
+            # Usage reports management
+            all_reports_df = db.get_all_usage_reports()
+            if not all_reports_df.empty:
+                st.write(f"**Rapports d'usage ({len(all_reports_df)} enregistrements):**")
+                
+                for idx, report in all_reports_df.iterrows():
+                    col1, col2 = st.columns([4, 1])
+                    with col1:
+                        st.write(f"📋 Rapport #{report['ID opérateur']} - {report['Endoscope']} par {report.get('created_by', 'N/A')}")
+                    with col2:
+                        if st.button("🗑️ Supprimer", key=f"admin_del_report_{report['ID opérateur']}"):
+                            if db.delete_usage_report(report['ID opérateur']):
+                                st.success("Rapport supprimé!")
+                                st.rerun()
             else:
                 st.info("Aucun rapport d'usage en base")
     
@@ -408,7 +430,8 @@ def show_biomedical_interface():
                         new_numero_serie = st.text_input("Numéro de série", value=endoscope['numero_serie'])
                         new_etat = st.selectbox("État", ['fonctionnel', 'en panne'], 
                                               index=0 if endoscope['etat'] == 'fonctionnel' else 1)
-                        new_observation = st.text_area("Observation", value=endoscope['observation'] or '')
+                        current_obs = endoscope['observation'] if pd.notna(endoscope['observation']) else ''
+                        new_observation = st.text_area("Observation", value=current_obs)
                         new_localisation = st.text_input("Localisation", value=endoscope['localisation'])
                         
                         if st.form_submit_button("💾 Mettre à jour"):
@@ -501,7 +524,8 @@ def show_sterilization_interface():
                         new_medecin = st.text_input("Médecin", value=report['medecin'])
                         new_etat = st.selectbox("État", ['fonctionnel', 'en panne'], 
                                               index=0 if report['etat'] == 'fonctionnel' else 1)
-                        new_nature_panne = st.text_area("Nature de la panne", value=report['nature_panne'] or '')
+                        current_panne = report['nature_panne'] if pd.notna(report['nature_panne']) else ''
+                        new_nature_panne = st.text_area("Nature de la panne", value=current_panne)
                         
                         if st.form_submit_button("💾 Mettre à jour"):
                             if new_etat == 'en panne' and not new_nature_panne:
@@ -550,12 +574,19 @@ def show_archives_interface():
         if st.button("🖨️ Imprimer les Archives"):
             archives_html = ""
             for idx, report in reports_df.iterrows():
+                # Safe extraction of nature_panne value
+                try:
+                    nature_panne_value = str(report['Nature de la panne'])
+                    nature_panne_display = nature_panne_value if nature_panne_value not in ['nan', 'None', ''] else 'N/A'
+                except:
+                    nature_panne_display = 'N/A'
+                
                 archives_html += f"""
                 <div class="record">
                     <div class="field"><span class="label">ID Opérateur:</span> {report['ID opérateur']}</div>
                     <div class="field"><span class="label">Endoscope:</span> {report['Endoscope']}</div>
                     <div class="field"><span class="label">Numéro de série:</span> {report['Numéro de série']}</div>
-                    <div class="field"><span class="label">Nature de la panne:</span> {report['Nature de la panne'] if pd.notna(report['Nature de la panne']) else 'N/A'}</div>
+                    <div class="field"><span class="label">Nature de la panne:</span> {nature_panne_display}</div>
                     <div class="field"><span class="label">Médecin:</span> {report['Médecin']}</div>
                     <div class="field"><span class="label">Date d'utilisation:</span> {report["Date d'utilisation"]}</div>
                 </div>
