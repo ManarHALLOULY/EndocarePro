@@ -161,9 +161,9 @@ def show_dashboard():
 @require_role(['admin'])
 def show_admin_interface():
     """Admin interface for user management"""
-    st.title("👤 Gestion des Utilisateurs")
+    st.title("👤 Administration Système")
     
-    tab1, tab2 = st.tabs(["Voir Utilisateurs", "Ajouter Utilisateur"])
+    tab1, tab2, tab3, tab4 = st.tabs(["Utilisateurs", "Ajouter Utilisateur", "Gestion Base de Données", "Statistiques"])
     
     with tab1:
         st.subheader("Liste des Utilisateurs")
@@ -172,29 +172,41 @@ def show_admin_interface():
         if not users_df.empty:
             # Display users with edit/delete options
             for idx, user in users_df.iterrows():
-                col1, col2, col3, col4 = st.columns([2, 2, 2, 2])
+                col1, col2, col3, col4, col5 = st.columns([2, 2, 2, 1, 1])
                 
                 with col1:
                     st.write(f"**{user['username']}**")
                 
                 with col2:
+                    current_role = str(user['role'])
                     new_role = st.selectbox(
                         "Rôle", 
                         ['admin', 'biomedical', 'sterilisation'],
-                        index=['admin', 'biomedical', 'sterilisation'].index(user['role']),
+                        index=['admin', 'biomedical', 'sterilisation'].index(current_role),
                         key=f"role_{user['id']}"
                     )
                 
                 with col3:
+                    new_password = st.text_input("Nouveau mot de passe", type="password", key=f"pwd_{user['id']}")
+                
+                with col4:
                     if st.button("💾 Modifier", key=f"edit_{user['id']}"):
-                        if db.update_user_role(user['id'], new_role):
-                            st.success("Rôle modifié avec succès!")
+                        updated = False
+                        if new_role != current_role:
+                            if db.update_user_role(user['id'], new_role):
+                                updated = True
+                        if new_password:
+                            if db.update_user_password(user['id'], new_password):
+                                updated = True
+                        
+                        if updated:
+                            st.success("Utilisateur modifié!")
                             st.rerun()
                         else:
                             st.error("Erreur lors de la modification")
                 
-                with col4:
-                    if user['username'] != 'admin':  # Prevent admin deletion
+                with col5:
+                    if str(user['username']) != 'admin':  # Prevent admin deletion
                         if st.button("❌ Supprimer", key=f"delete_{user['id']}"):
                             if db.delete_user(user['id']):
                                 st.success("Utilisateur supprimé!")
@@ -223,13 +235,79 @@ def show_admin_interface():
                         st.error("Erreur: Nom d'utilisateur déjà existant")
                 else:
                     st.error("Veuillez remplir tous les champs")
+    
+    with tab3:
+        st.subheader("🗑️ Gestion de la Base de Données")
+        st.warning("⚠️ **ATTENTION**: Ces actions sont irréversibles!")
+        
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            st.write("**Purger les Données**")
+            
+            if st.button("🗑️ Supprimer tous les endoscopes", type="secondary"):
+                deleted_count = db.purge_all_endoscopes()
+                st.success(f"{deleted_count} endoscopes supprimés de la base de données")
+                st.rerun()
+            
+            if st.button("🗑️ Supprimer tous les rapports d'usage", type="secondary"):
+                deleted_count = db.purge_all_usage_reports()
+                st.success(f"{deleted_count} rapports supprimés de la base de données")
+                st.rerun()
+        
+        with col2:
+            st.write("**Accès Complet aux Données**")
+            
+            # Display all endoscopes
+            endoscopes_df = db.get_all_endoscopes()
+            if not endoscopes_df.empty:
+                st.write(f"**Endoscopes ({len(endoscopes_df)} enregistrements):**")
+                st.dataframe(endoscopes_df, use_container_width=True)
+            else:
+                st.info("Aucun endoscope en base")
+            
+            # Display all usage reports
+            reports_df = db.get_all_usage_reports()
+            if not reports_df.empty:
+                st.write(f"**Rapports d'usage ({len(reports_df)} enregistrements):**")
+                st.dataframe(reports_df, use_container_width=True)
+            else:
+                st.info("Aucun rapport d'usage en base")
+    
+    with tab4:
+        st.subheader("📊 Statistiques de la Base de Données")
+        
+        stats = db.get_database_statistics()
+        
+        # Key metrics
+        col1, col2, col3 = st.columns(3)
+        
+        with col1:
+            st.metric("Total Utilisateurs", stats['total_users'])
+        
+        with col2:
+            st.metric("Total Endoscopes", stats['total_endoscopes'])
+        
+        with col3:
+            st.metric("Total Rapports", stats['total_reports'])
+        
+        # Users by role chart
+        if not stats['users_by_role'].empty:
+            st.subheader("Répartition des Utilisateurs par Rôle")
+            fig_users = px.pie(
+                stats['users_by_role'], 
+                values='count', 
+                names='role',
+                title="Utilisateurs par Rôle"
+            )
+            st.plotly_chart(fig_users, use_container_width=True)
 
 @require_role(['biomedical'])
 def show_biomedical_interface():
     """Biomedical engineer interface for inventory management"""
     st.title("🔬 Gestion de l'Inventaire des Endoscopes")
     
-    tab1, tab2 = st.tabs(["Inventaire", "Ajouter Endoscope"])
+    tab1, tab2, tab3 = st.tabs(["Inventaire", "Ajouter Endoscope", "Modifier/Supprimer"])
     
     with tab1:
         st.subheader("Inventaire des Endoscopes")
@@ -247,8 +325,12 @@ def show_biomedical_interface():
                         st.write(f"**Numéro de série:** {endoscope['numero_serie']}")
                         st.write(f"**État:** {endoscope['etat']}")
                         st.write(f"**Localisation:** {endoscope['localisation']}")
-                        if endoscope['observation']:
-                            st.write(f"**Observation:** {endoscope['observation']}")
+                        try:
+                            obs_value = endoscope['observation']
+                            if obs_value is not None and str(obs_value).strip() not in ['', 'nan', 'None']:
+                                st.write(f"**Observation:** {obs_value}")
+                        except:
+                            pass
                         st.write(f"**Créé le:** {endoscope['created_at']}")
                     
                     with col2:
@@ -261,7 +343,7 @@ def show_biomedical_interface():
                                 <div class="field"><span class="label">Numéro de série:</span> {endoscope['numero_serie']}</div>
                                 <div class="field"><span class="label">État:</span> {endoscope['etat']}</div>
                                 <div class="field"><span class="label">Localisation:</span> {endoscope['localisation']}</div>
-                                <div class="field"><span class="label">Observation:</span> {endoscope['observation'] or 'N/A'}</div>
+                                <div class="field"><span class="label">Observation:</span> {str(endoscope.get('observation', 'N/A'))}</div>
                                 <div class="timestamp">Créé le: {endoscope['created_at']}</div>
                             </div>
                             """
@@ -286,7 +368,7 @@ def show_biomedical_interface():
             numero_serie = st.text_input("Numéro de série*")
             etat = st.selectbox("État*", ['fonctionnel', 'en panne'])
             observation = st.text_area("Observation")
-            localisation = st.text_input("Localisation*", placeholder="ex: stock, externe, en utilisation")
+            localisation = st.text_input("Localisation*", placeholder="ex: stockage, externe, en utilisation")
             
             if st.form_submit_button("➕ Ajouter Endoscope"):
                 if designation and marque and modele and numero_serie and localisation:
@@ -297,37 +379,160 @@ def show_biomedical_interface():
                         st.error("Erreur: Numéro de série déjà existant")
                 else:
                     st.error("Veuillez remplir tous les champs obligatoires (*)")
+    
+    with tab3:
+        st.subheader("Modifier ou Supprimer un Endoscope")
+        endoscopes_df = db.get_all_endoscopes()
+        
+        if not endoscopes_df.empty:
+            # Select endoscope to modify
+            endoscope_options = [(idx, f"{row['designation']} - {row['numero_serie']}") for idx, row in endoscopes_df.iterrows()]
+            
+            if endoscope_options:
+                selected_idx = st.selectbox(
+                    "Sélectionner un endoscope à modifier/supprimer:",
+                    options=[opt[0] for opt in endoscope_options],
+                    format_func=lambda x: next(opt[1] for opt in endoscope_options if opt[0] == x)
+                )
+                
+                endoscope = endoscopes_df.loc[selected_idx]
+                
+                col1, col2 = st.columns([2, 1])
+                
+                with col1:
+                    st.subheader("✏️ Modifier l'Endoscope")
+                    with st.form("update_endoscope_form"):
+                        new_designation = st.text_input("Désignation", value=endoscope['designation'])
+                        new_marque = st.text_input("Marque", value=endoscope['marque'])
+                        new_modele = st.text_input("Modèle", value=endoscope['modele'])
+                        new_numero_serie = st.text_input("Numéro de série", value=endoscope['numero_serie'])
+                        new_etat = st.selectbox("État", ['fonctionnel', 'en panne'], 
+                                              index=0 if endoscope['etat'] == 'fonctionnel' else 1)
+                        new_observation = st.text_area("Observation", value=endoscope['observation'] or '')
+                        new_localisation = st.text_input("Localisation", value=endoscope['localisation'])
+                        
+                        if st.form_submit_button("💾 Mettre à jour"):
+                            update_data = {
+                                'designation': new_designation,
+                                'marque': new_marque,
+                                'modele': new_modele,
+                                'numero_serie': new_numero_serie,
+                                'etat': new_etat,
+                                'observation': new_observation,
+                                'localisation': new_localisation
+                            }
+                            
+                            if db.update_endoscope(endoscope['id'], **update_data):
+                                st.success("Endoscope mis à jour avec succès!")
+                                st.rerun()
+                            else:
+                                st.error("Erreur lors de la mise à jour")
+                
+                with col2:
+                    st.subheader("❌ Supprimer")
+                    st.warning("⚠️ Cette action est irréversible!")
+                    if st.button("🗑️ Supprimer cet endoscope", type="secondary"):
+                        if db.delete_endoscope(endoscope['id']):
+                            st.success("Endoscope supprimé avec succès!")
+                            st.rerun()
+                        else:
+                            st.error("Erreur lors de la suppression")
+        else:
+            st.info("Aucun endoscope à modifier")
 
 @require_role(['sterilisation'])
 def show_sterilization_interface():
     """Sterilization agent interface for usage reports"""
     st.title("🧴 Rapports d'Usage Post-Procédure")
     
-    st.subheader("Enregistrer un Rapport d'Usage")
+    tab1, tab2 = st.tabs(["Nouveau Rapport", "Modifier/Supprimer Rapports"])
     
-    with st.form("usage_report_form"):
-        nom_operateur = st.text_input("Nom de l'opérateur*")
-        endoscope = st.text_input("Endoscope (désignation)*")
-        numero_serie = st.text_input("Numéro de série*")
-        medecin = st.text_input("Médecin en charge*")
-        etat = st.selectbox("État de l'appareil*", ['fonctionnel', 'en panne'])
+    with tab1:
+        st.subheader("Enregistrer un Rapport d'Usage")
         
-        nature_panne = None
-        if etat == 'en panne':
-            nature_panne = st.text_area("Nature de la panne*")
-        
-        if st.form_submit_button("📝 Enregistrer Rapport"):
-            if nom_operateur and endoscope and numero_serie and medecin:
-                if etat == 'en panne' and not nature_panne:
-                    st.error("Veuillez spécifier la nature de la panne")
-                else:
-                    if db.add_usage_report(nom_operateur, endoscope, numero_serie, medecin, etat, nature_panne, get_username()):
-                        st.success("Rapport d'usage enregistré avec succès!")
-                        st.rerun()
+        with st.form("usage_report_form"):
+            nom_operateur = st.text_input("Nom de l'opérateur*")
+            endoscope = st.text_input("Endoscope (désignation)*")
+            numero_serie = st.text_input("Numéro de série*")
+            medecin = st.text_input("Médecin en charge*")
+            etat = st.selectbox("État de l'appareil*", ['fonctionnel', 'en panne'])
+            
+            nature_panne = None
+            if etat == 'en panne':
+                nature_panne = st.text_area("Nature de la panne*")
+            
+            if st.form_submit_button("📝 Enregistrer Rapport"):
+                if nom_operateur and endoscope and numero_serie and medecin:
+                    if etat == 'en panne' and not nature_panne:
+                        st.error("Veuillez spécifier la nature de la panne")
                     else:
-                        st.error("Erreur lors de l'enregistrement")
-            else:
-                st.error("Veuillez remplir tous les champs obligatoires (*)")
+                        if db.add_usage_report(nom_operateur, endoscope, numero_serie, medecin, etat, nature_panne, get_username()):
+                            st.success("Rapport d'usage enregistré avec succès!")
+                            st.rerun()
+                        else:
+                            st.error("Erreur lors de l'enregistrement")
+                else:
+                    st.error("Veuillez remplir tous les champs obligatoires (*)")
+    
+    with tab2:
+        st.subheader("Gérer mes Rapports d'Usage")
+        user_reports = db.get_user_usage_reports(get_username())
+        
+        if not user_reports.empty:
+            report_options = [(idx, f"Rapport #{row['id']} - {row['endoscope']} ({row['date_utilisation']})") for idx, row in user_reports.iterrows()]
+            
+            if report_options:
+                selected_idx = st.selectbox(
+                    "Sélectionner un rapport à modifier/supprimer:",
+                    options=[opt[0] for opt in report_options],
+                    format_func=lambda x: next(opt[1] for opt in report_options if opt[0] == x)
+                )
+                
+                report = user_reports.loc[selected_idx]
+                
+                col1, col2 = st.columns([2, 1])
+                
+                with col1:
+                    st.subheader("✏️ Modifier le Rapport")
+                    with st.form("update_report_form"):
+                        new_nom_operateur = st.text_input("Nom de l'opérateur", value=report['nom_operateur'])
+                        new_endoscope = st.text_input("Endoscope", value=report['endoscope'])
+                        new_numero_serie = st.text_input("Numéro de série", value=report['numero_serie'])
+                        new_medecin = st.text_input("Médecin", value=report['medecin'])
+                        new_etat = st.selectbox("État", ['fonctionnel', 'en panne'], 
+                                              index=0 if report['etat'] == 'fonctionnel' else 1)
+                        new_nature_panne = st.text_area("Nature de la panne", value=report['nature_panne'] or '')
+                        
+                        if st.form_submit_button("💾 Mettre à jour"):
+                            if new_etat == 'en panne' and not new_nature_panne:
+                                st.error("Veuillez spécifier la nature de la panne")
+                            else:
+                                update_data = {
+                                    'nom_operateur': new_nom_operateur,
+                                    'endoscope': new_endoscope,
+                                    'numero_serie': new_numero_serie,
+                                    'medecin': new_medecin,
+                                    'etat': new_etat,
+                                    'nature_panne': new_nature_panne if new_etat == 'en panne' else None
+                                }
+                                
+                                if db.update_usage_report(report['id'], **update_data):
+                                    st.success("Rapport mis à jour avec succès!")
+                                    st.rerun()
+                                else:
+                                    st.error("Erreur lors de la mise à jour")
+                
+                with col2:
+                    st.subheader("❌ Supprimer")
+                    st.warning("⚠️ Cette action est irréversible!")
+                    if st.button("🗑️ Supprimer ce rapport", type="secondary"):
+                        if db.delete_usage_report(report['id']):
+                            st.success("Rapport supprimé avec succès!")
+                            st.rerun()
+                        else:
+                            st.error("Erreur lors de la suppression")
+        else:
+            st.info("Aucun rapport d'usage créé par vous")
 
 def show_archives_interface():
     """Archives interface for all users"""
@@ -350,7 +555,7 @@ def show_archives_interface():
                     <div class="field"><span class="label">ID Opérateur:</span> {report['ID opérateur']}</div>
                     <div class="field"><span class="label">Endoscope:</span> {report['Endoscope']}</div>
                     <div class="field"><span class="label">Numéro de série:</span> {report['Numéro de série']}</div>
-                    <div class="field"><span class="label">Nature de la panne:</span> {report['Nature de la panne'] or 'N/A'}</div>
+                    <div class="field"><span class="label">Nature de la panne:</span> {report['Nature de la panne'] if pd.notna(report['Nature de la panne']) else 'N/A'}</div>
                     <div class="field"><span class="label">Médecin:</span> {report['Médecin']}</div>
                     <div class="field"><span class="label">Date d'utilisation:</span> {report["Date d'utilisation"]}</div>
                 </div>

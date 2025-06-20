@@ -223,3 +223,106 @@ class DatabaseManager:
             return 0, 0, 0
         finally:
             conn.close()
+    
+    def get_user_usage_reports(self, username):
+        """Get usage reports created by specific user"""
+        conn = self.get_connection()
+        try:
+            return pd.read_sql_query(
+                """SELECT * FROM usage_reports 
+                   WHERE created_by = ? 
+                   ORDER BY date_utilisation DESC""",
+                conn, params=[username]
+            )
+        finally:
+            conn.close()
+    
+    def update_usage_report(self, report_id, **kwargs):
+        """Update usage report"""
+        conn = self.get_connection()
+        try:
+            cursor = conn.cursor()
+            set_clause = ", ".join([f"{key} = ?" for key in kwargs.keys()])
+            values = list(kwargs.values()) + [report_id]
+            
+            cursor.execute(
+                f"UPDATE usage_reports SET {set_clause} WHERE id = ?",
+                values
+            )
+            conn.commit()
+            return cursor.rowcount > 0
+        finally:
+            conn.close()
+    
+    def delete_usage_report(self, report_id):
+        """Delete usage report"""
+        conn = self.get_connection()
+        try:
+            cursor = conn.cursor()
+            cursor.execute("DELETE FROM usage_reports WHERE id = ?", (report_id,))
+            conn.commit()
+            return cursor.rowcount > 0
+        finally:
+            conn.close()
+    
+    def update_user_password(self, user_id, new_password):
+        """Update user password"""
+        conn = self.get_connection()
+        try:
+            cursor = conn.cursor()
+            cursor.execute(
+                "UPDATE users SET password = ? WHERE id = ?",
+                (new_password, user_id)
+            )
+            conn.commit()
+            return cursor.rowcount > 0
+        finally:
+            conn.close()
+    
+    def purge_all_endoscopes(self):
+        """Delete all endoscope records (admin only)"""
+        conn = self.get_connection()
+        try:
+            cursor = conn.cursor()
+            cursor.execute("DELETE FROM endoscopes")
+            conn.commit()
+            return cursor.rowcount
+        finally:
+            conn.close()
+    
+    def purge_all_usage_reports(self):
+        """Delete all usage reports (admin only)"""
+        conn = self.get_connection()
+        try:
+            cursor = conn.cursor()
+            cursor.execute("DELETE FROM usage_reports")
+            conn.commit()
+            return cursor.rowcount
+        finally:
+            conn.close()
+    
+    def get_database_statistics(self):
+        """Get comprehensive database statistics"""
+        conn = self.get_connection()
+        try:
+            stats = {}
+            
+            # Users count
+            result = pd.read_sql_query("SELECT COUNT(*) as count FROM users", conn)
+            stats['total_users'] = result.iloc[0]['count']
+            
+            # Endoscopes count
+            result = pd.read_sql_query("SELECT COUNT(*) as count FROM endoscopes", conn)
+            stats['total_endoscopes'] = result.iloc[0]['count']
+            
+            # Usage reports count
+            result = pd.read_sql_query("SELECT COUNT(*) as count FROM usage_reports", conn)
+            stats['total_reports'] = result.iloc[0]['count']
+            
+            # Users by role
+            result = pd.read_sql_query("SELECT role, COUNT(*) as count FROM users GROUP BY role", conn)
+            stats['users_by_role'] = result
+            
+            return stats
+        finally:
+            conn.close()
