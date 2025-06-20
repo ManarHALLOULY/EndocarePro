@@ -475,7 +475,7 @@ def show_sterilization_interface():
     """Sterilization agent interface for sterilization reports"""
     st.title("🧴 Rapports de Stérilisation et Désinfection")
     
-    tab1, tab2, tab3 = st.tabs(["Nouveau Rapport Stérilisation", "Gérer Rapports", "Ancien Système"])
+    tab1, tab2 = st.tabs(["Nouveau Rapport Stérilisation", "Gérer Rapports"])
     
     with tab1:
         st.subheader("Enregistrer un Rapport de Stérilisation")
