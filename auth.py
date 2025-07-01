@@ -15,29 +15,74 @@ def get_username():
 
 def login_form():
     """Display login form"""
-    st.title("🏥 EndoTrace - Système de Traçabilité")
-    st.markdown("### Connexion")
     
-    with st.form("login_form"):
-        username = st.text_input("Nom d'utilisateur")
-        password = st.text_input("Mot de passe", type="password")
-        submit = st.form_submit_button("Se connecter")
-        
-        if submit:
-            if username and password:
-                db = DatabaseManager()
-                role = db.authenticate_user(username, password)
+    # Create two columns - left for login form, right for image
+    col_left, col_right = st.columns([1, 1])
+    
+    with col_left:
+        # Put everything in a container with border and make it taller
+        with st.container(border=True):
+            # Add top padding
+            st.markdown("<br><br>", unsafe_allow_html=True)
+            
+            # Logo at the top of the form - centered
+            try:
+                col1, col2, col3 = st.columns([1, 2, 1])
+                with col2:
+                    st.image('attached_assets/logo.webp', width=300)
+            except Exception as e:
+                st.error(f"Impossible de charger le logo : {e}")
+            
+            # Add more spacing
+            
+            # Title and subtitle
+            st.markdown("<h2 style='text-align: center; margin-bottom: 30px;'>Bienvenue sur EndocarePro</h2>", unsafe_allow_html=True)
+            
+            # Add more spacing
+            st.markdown("<br>", unsafe_allow_html=True)
+            
+            # Login form
+            with st.form("login_form"):
+                username = st.text_input("**Nom d'utilisateur**")
+                password = st.text_input("**Mot de passe**", type="password")
                 
-                if role:
-                    st.session_state.authenticated = True
-                    st.session_state.user_role = role
-                    st.session_state.username = username
-                    st.success(f"Connexion réussie! Rôle: {role}")
-                    st.rerun()
-                else:
-                    st.error("Nom d'utilisateur ou mot de passe incorrect")
-            else:
-                st.error("Veuillez remplir tous les champs")
+                # Add spacing before button
+                st.markdown("<br><br>", unsafe_allow_html=True)
+                
+                submit = st.form_submit_button("Se connecter", use_container_width=True, type="primary")
+                
+                if submit:
+                    if username and password:
+                        db = DatabaseManager()
+                        role = db.authenticate_user(username, password)
+                        
+                        if role:
+                            st.session_state.authenticated = True
+                            st.session_state.user_role = role
+                            st.session_state.username = username
+                            st.success(f"Connexion réussie! Bienvenue {username}.")
+                            st.rerun()
+                        else:
+                            st.error("Nom d'utilisateur ou mot de passe incorrect")
+                    else:
+                        st.error("Veuillez remplir tous les champs")
+            
+            # Add bottom padding to make the box taller
+            st.markdown("<br><br><br>", unsafe_allow_html=True)
+    
+    with col_right:
+        # Add some top margin and display bigger image
+        st.markdown("<br><br><br>", unsafe_allow_html=True)
+        
+        try:
+            st.image('assets/logo-hopital.jpg', use_container_width=True)
+        except Exception as e:
+            st.markdown("""
+            <div style="height: 400px; background-color: #f0f2f6; border-radius: 10px; display: flex; align-items: center; justify-content: center; color: #666;">
+                <h3>Logo Hôpital</h3>
+            </div>
+            """, unsafe_allow_html=True)
+
 
 def logout():
     """Logout user"""

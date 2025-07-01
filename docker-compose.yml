@@ -1,0 +1,20 @@
+version: '3.8'
+services:
+  streamlit-app:
+    image: python:3.10
+    container_name: streamlit-app
+    working_dir: /app
+    volumes:
+      - ./:/app
+    ports:
+      - "8501:8501"
+    environment:
+      - SMTP_SERVER=smtp.gmail.com
+      - SMTP_PORT=587
+      - EMAIL_USER=your_email@gmail.com
+      - EMAIL_PASSWORD=your_app_password
+      - ALERT_RECIPIENTS=admin@hospital.com
+    command: >
+      sh -c "pip install --upgrade pip && \
+             pip install -r requirements.txt && \
+             streamlit run app.py --server.port=8501 --server.address=0.0.0.0" 

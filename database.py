@@ -129,7 +129,12 @@ class DatabaseManager:
                 f"UPDATE endoscopes SET {set_clause}, updated_at = CURRENT_TIMESTAMP WHERE id = ?",
                 values)
             conn.commit()
-            return cursor.rowcount > 0
+            result = cursor.rowcount > 0
+            print(f"Update endoscope {endoscope_id}: {result} rows affected")
+            return result
+        except Exception as e:
+            print(f"Error updating endoscope {endoscope_id}: {e}")
+            return False
         finally:
             conn.close()
 
@@ -141,7 +146,12 @@ class DatabaseManager:
             cursor.execute("DELETE FROM endoscopes WHERE id = ?",
                            (endoscope_id, ))
             conn.commit()
-            return cursor.rowcount > 0
+            result = cursor.rowcount > 0
+            print(f"Delete endoscope {endoscope_id}: {result} rows affected")
+            return result
+        except Exception as e:
+            print(f"Error deleting endoscope {endoscope_id}: {e}")
+            return False
         finally:
             conn.close()
 
@@ -187,9 +197,9 @@ class DatabaseManager:
                 "SELECT etat, COUNT(*) as count FROM endoscopes GROUP BY etat",
                 conn)
 
-            # Get location statistics
+            # Get location statistics, grouping by lowercase to avoid duplicates
             location_stats = pd.read_sql_query(
-                "SELECT localisation, COUNT(*) as count FROM endoscopes GROUP BY localisation",
+                "SELECT TRIM(LOWER(localisation)) as localisation, COUNT(*) as count FROM endoscopes GROUP BY TRIM(LOWER(localisation))",
                 conn)
 
             # Get total counts
@@ -380,6 +390,23 @@ class DatabaseManager:
         finally:
             conn.close()
     
+    def get_recent_breakdowns(self, days=7):
+        """Get endoscopes reported as broken in sterilization reports in the last N days."""
+        conn = self.get_connection()
+        try:
+            query = f"""
+                SELECT endoscope, numero_serie, date_desinfection, nom_operateur, nature_panne
+                FROM sterilisation_reports
+                WHERE etat_endoscope = 'en panne' AND date_desinfection >= date('now', '-{days} days')
+                ORDER BY date_desinfection DESC
+            """
+            return pd.read_sql_query(query, conn)
+        except Exception as e:
+            print(f"Error getting recent breakdowns: {e}")
+            return pd.DataFrame()
+        finally:
+            conn.close()
+    
     def update_sterilisation_report(self, report_id, **kwargs):
         """Update sterilization report"""
         conn = self.get_connection()
@@ -393,9 +420,11 @@ class DatabaseManager:
                 values
             )
             conn.commit()
-            return cursor.rowcount > 0
+            result = cursor.rowcount > 0
+            print(f"Update sterilization report {report_id}: {result} rows affected")
+            return result
         except Exception as e:
-            print(f"Error updating sterilization report: {e}")
+            print(f"Error updating sterilization report {report_id}: {e}")
             return False
         finally:
             conn.close()
@@ -407,55 +436,61 @@ class DatabaseManager:
             cursor = conn.cursor()
             cursor.execute("DELETE FROM sterilisation_reports WHERE id = ?", (report_id,))
             conn.commit()
-            return cursor.rowcount > 0
+            result = cursor.rowcount > 0
+            print(f"Delete sterilization report {report_id}: {result} rows affected")
+            return result
         except Exception as e:
-            print(f"Error deleting sterilization report: {e}")
+            print(f"Error deleting sterilization report {report_id}: {e}")
             return False
         finally:
             conn.close()
     
     def can_user_modify_endoscope(self, user_role, endoscope_id, username):
         """Check if user can modify endoscope"""
-        if user_role == 'admin':
-            return True
+        # Biomedical engineers can modify all endoscopes
         if user_role == 'biomedical':
-            return True  # Biomedical engineers can modify all endoscopes
+            return True
+        # Admin can modify all endoscopes
+        elif user_role == 'admin':
+            return True
         return False
-    
+
     def can_user_modify_usage_report(self, user_role, report_id, username):
         """Check if user can modify usage report"""
-        if user_role == 'admin':
-            return True
-        if user_role == 'biomedical':
-            return True  # Biomedical engineers can modify all reports
-        
-        # Sterilization agents can only modify their own reports
-        if user_role == 'sterilisation':
-            conn = self.get_connection()
-            try:
-                cursor = conn.cursor()
-                cursor.execute("SELECT created_by FROM usage_reports WHERE id = ?", (report_id,))
-                result = cursor.fetchone()
-                return result and result[0] == username
-            finally:
-                conn.close()
+        # This function is not used in the current UI for modification,
+        # but we define a strict rule: nobody can modify usage reports for now.
         return False
-    
+
     def can_user_modify_sterilisation_report(self, user_role, report_id, username):
         """Check if user can modify sterilization report"""
-        if user_role == 'admin':
-            return True
-        if user_role == 'biomedical':
-            return True  # Biomedical engineers can modify all sterilization reports
-        
-        # Sterilization agents can only modify their own reports
+        # Sterilization agents can modify all sterilization reports
         if user_role == 'sterilisation':
-            conn = self.get_connection()
-            try:
-                cursor = conn.cursor()
-                cursor.execute("SELECT created_by FROM sterilisation_reports WHERE id = ?", (report_id,))
-                result = cursor.fetchone()
-                return result and result[0] == username
-            finally:
-                conn.close()
+            return True
+        # Admin can modify all reports
+        elif user_role == 'admin':
+            return True
         return False
+
+    def get_endoscope_availability_by_type(self):
+        """Get availability statistics grouped by designation (actual endoscope names)"""
+        conn = self.get_connection()
+        try:
+            query = """
+            SELECT 
+                TRIM(designation) as type,
+                COUNT(*) as total,
+                SUM(CASE WHEN etat = 'fonctionnel' THEN 1 ELSE 0 END) as fonctionnel,
+                SUM(CASE WHEN etat = 'en panne' THEN 1 ELSE 0 END) as en_panne,
+                ROUND(SUM(CASE WHEN etat = 'fonctionnel' THEN 1 ELSE 0 END) * 100.0 / COUNT(*), 1) as disponibilite_pct,
+                ROUND(SUM(CASE WHEN etat = 'en panne' THEN 1 ELSE 0 END) * 100.0 / COUNT(*), 1) as indisponibilite_pct
+            FROM endoscopes 
+            GROUP BY TRIM(designation)
+            ORDER BY TRIM(designation)
+            """
+            return pd.read_sql_query(query, conn)
+        
+        except Exception as e:
+            print(f"Error getting availability by designation: {e}")
+            return pd.DataFrame()
+        finally:
+            conn.close()
