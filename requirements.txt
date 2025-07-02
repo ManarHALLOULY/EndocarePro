@@ -1,6 +1,6 @@
-streamlit
-pandas
-plotly
-qrcode
-reportlab
-Pillow
+streamlit==1.46.0
+pandas==2.3.0
+plotly==6.1.2
+qrcode[pil]==7.4.2
+reportlab==4.0.4
+Pillow==11.2.1
