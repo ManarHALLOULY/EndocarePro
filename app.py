@@ -442,7 +442,7 @@ def show_dashboard():
                 ),
                 yaxis=dict(
                     title="Taux (%)",
-                    titlefont=dict(size=12, color='black', family='Arial'),
+                    title_font=dict(size=12, color='black', family='Arial'),
                     tickfont=dict(size=11, color='black', family='Arial'),
                     showgrid=True,
                     gridcolor='lightgray',
@@ -517,8 +517,8 @@ def show_dashboard():
                     y='count',
                     title="Répartition par Localisation",
                     color='count',
-                    color_continuous_scale='Blues'
-                )
+                    color_continuous_scale=["#1a3b5e", "#385EA4", '#415a77', "#155dbb", "#57b3ff"] 
+                )       
                 st.plotly_chart(fig_location, use_container_width=True, key="plotly_location")
             else:
                 st.info("Aucune donnée disponible")
@@ -804,7 +804,7 @@ def show_biomedical_interface():
 @require_role(['sterilisation', 'biomedical'])
 def show_sterilization_interface():
     """Sterilization agent interface for sterilization reports"""
-    st.title("🧴 Rapports de Stérilisation et Désinfection")
+    st.title(" Rapports de Stérilisation et Désinfection")
     tab1, tab2 = st.tabs(["Nouveau Rapport Stérilisation", "Gérer Rapports"])
     
     with tab1:
@@ -946,10 +946,11 @@ def show_sterilization_interface():
                         with col2:
                             can_modify = db.can_user_modify_sterilisation_report(get_user_role(), report['id'], get_username())
                             if can_modify:
-                                if st.button("✏️ Modifier", key=f"edit_steril_{report['id']}"):
-                                    st.session_state[f"edit_steril_{report['id']}"] = True
+                                edit_key = f"edit_steril_{report['id']}"
+                                if st.button("✏️ Modifier", key=f"edit_btn_steril_{report['id']}"):
+                                    st.session_state[edit_key] = True
                                     st.rerun()
-                                if st.button("🗑️ Supprimer", key=f"del_steril_{report['id']}"):
+                                if st.button("🗑️ Supprimer", key=f"del_btn_steril_{report['id']}"):
                                     try:
                                         if db.delete_sterilisation_report(report['id']):
                                             st.success("✅ Rapport supprimé avec succès!")
