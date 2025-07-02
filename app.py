@@ -456,7 +456,6 @@ def show_dashboard():
                 bargap=0.6,  # Space between groups
                 bargroupgap=0.15,  # Space between bars in the same group
                 height=500,
-                width=1000,
                 showlegend=True,
                 legend=dict(
                     orientation="v",
