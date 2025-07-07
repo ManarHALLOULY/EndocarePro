@@ -29,7 +29,7 @@ from email_alerts import EmailAlertManager
 # Page configuration
 st.set_page_config(
     page_title="EndocarePro - Système de Traçabilité",
-    page_icon="🏥",
+    page_icon="",
     layout="wide",
     initial_sidebar_state="expanded"
 )
@@ -322,16 +322,30 @@ def show_dashboard():
                 st.error(f" **{breakdown_count} NOUVELLES ALERTES DE PANNES**")
             
             # Show each breakdown with enhanced styling
+
             for idx, report in recent_breakdowns.iterrows():
                 with st.expander(f" PANNE {idx+1} - {report['endoscope']}", expanded=True):
                     col1, col2 = st.columns([3, 1])
                     with col1:
+                        # Fix for salle and nature_panne fields
+                        salle_value = report.get('salle', '')
+                        if pd.isna(salle_value) or not str(salle_value).strip():
+                            salle_display = 'Non spécifiée'
+                        else:
+                            salle_display = str(salle_value).strip()
+                        
+                        nature_panne_value = report.get('nature_panne', '')
+                        if pd.isna(nature_panne_value) or not str(nature_panne_value).strip():
+                            nature_panne_display = 'Non spécifiée'
+                        else:
+                            nature_panne_display = str(nature_panne_value).strip()
+                        
                         st.warning(
                             f"**Date:** {report['date_desinfection']}\n\n"
                             f"**Signalé par:** {report['nom_operateur']}\n\n"
                             f"**Endoscope:** {report['endoscope']} (N/S: {report['numero_serie']})\n\n"
-                            f"**Nature de la panne:** {report.get('nature_panne', 'Non spécifiée')}\n\n"
-                            f"**Salle:** {report.get('salle', 'Non spécifiée')}"
+                            f"**Nature de la panne:** {nature_panne_display}\n\n"
+                            f"**Salle:** {salle_display}"
                         )
         else:
             st.success(" **AUCUNE PANNE RÉCENTE** - Tous les endoscopes fonctionnent correctement au cours des 7 derniers jours.")
@@ -556,7 +570,7 @@ def show_admin_interface():
                 with col4:
                     st.write("")
                     st.write("")
-                    if st.button("💾 Modifier", key=f"edit_{user['id']}"):
+                    if st.button(" Modifier", key=f"edit_{user['id']}"):
                         try:
                             updated = False
                             if new_role != current_role:
@@ -584,7 +598,7 @@ def show_admin_interface():
                     st.write("")
                     st.write("")
                     if str(user['username']) != 'admin':  # Prevent admin deletion
-                        if st.button("❌ Supprimer", key=f"delete_{user['id']}"):
+                        if st.button(" Supprimer", key=f"delete_{user['id']}"):
                             try:
                                 if db.delete_user(user['id']):
                                     st.success(f"Utilisateur {user['username']} supprimé avec succès!")
@@ -595,7 +609,7 @@ def show_admin_interface():
                                 st.error(f"Erreur lors de la suppression: {str(e)}")
                     else:
                         # Remplace st.info par un bouton désactivé pour maintenir l'alignement
-                        st.button("🔒 Admin protégé", key=f"protected_{user['id']}", disabled=True) 
+                        st.button(" Admin protégé", key=f"protected_{user['id']}", disabled=True) 
 
                 st.divider()
         else:
@@ -609,7 +623,7 @@ def show_admin_interface():
             new_password = st.text_input("Mot de passe", type="password")
             new_role = st.selectbox("Rôle", ['admin', 'biomedical', 'sterilisation'])
             
-            if st.form_submit_button("➕ Ajouter Utilisateur"):
+            if st.form_submit_button(" Ajouter Utilisateur"):
                 if new_username and new_password:
                     if db.add_user(new_username, new_password, new_role):
                         st.success("Utilisateur ajouté avec succès!")
@@ -635,7 +649,7 @@ def show_biomedical_interface():
             col_print1, col_print2, col_print3 = st.columns([2, 2, 2])
             
             with col_print1:
-                if st.button("📄 Imprimer Rapport Inventaire", key="print_inventory_biomedical", type="secondary"):
+                if st.button(" Imprimer Rapport Inventaire", key="print_inventory_biomedical", type="secondary"):
                     try:
                         with st.spinner("Génération du rapport d'inventaire..."):
                             pdf_bytes = generate_professional_pdf_report(
@@ -644,15 +658,15 @@ def show_biomedical_interface():
                                 "inventaire"
                             )
                             st.download_button(
-                                label="💾 Télécharger le Rapport PDF",
+                                label="Télécharger le Rapport PDF",
                                 data=pdf_bytes,
                                 file_name=f"inventaire_endoscopes_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf",
                                 mime="application/pdf",
                                 key="download_inventory_biomedical"
                             )
-                            st.success("✅ Rapport d'inventaire généré avec succès!")
+                            st.success("Rapport d'inventaire généré avec succès!")
                     except Exception as e:
-                        st.error(f"❌ Erreur lors de la génération du PDF: {str(e)}")
+                        st.error(f"Erreur lors de la génération du PDF: {str(e)}")
             
             with col_print2:
                 # Filter by status for printing
@@ -673,8 +687,8 @@ def show_biomedical_interface():
             
             # Show filtered count
             if filter_status != 'Tous' or filter_location != 'Tous':
-                st.info(f"📊 Affichage de {len(filtered_df)} endoscope(s) sur {len(endoscopes_df)} total")
-                if st.button("🖨️ Imprimer Sélection Filtrée", key="print_filtered", type="primary"):
+                st.info(f"Affichage de {len(filtered_df)} endoscope(s) sur {len(endoscopes_df)} total")
+                if st.button(" Imprimer Sélection Filtrée", key="print_filtered", type="primary"):
                     try:
                         with st.spinner("Génération du rapport filtré..."):
                             filter_title = f"Rapport d'Inventaire des Endoscopes"
@@ -689,15 +703,15 @@ def show_biomedical_interface():
                                 "inventaire"
                             )
                             st.download_button(
-                                label="💾 Télécharger le Rapport Filtré",
+                                label=" Télécharger le Rapport Filtré",
                                 data=pdf_bytes,
                                 file_name=f"inventaire_filtre_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf",
                                 mime="application/pdf",
                                 key="download_filtered_inventory"
                             )
-                            st.success("✅ Rapport filtré généré avec succès!")
+                            st.success("Rapport filtré généré avec succès!")
                     except Exception as e:
-                        st.error(f"❌ Erreur lors de la génération du PDF: {str(e)}")
+                        st.error(f" Erreur lors de la génération du PDF: {str(e)}")
             
             st.divider()
             
@@ -724,16 +738,16 @@ def show_biomedical_interface():
                     # --- Boutons d'action ---
                     with col2:
                         edit_key = f"edit_mode_{endoscope['id']}"
-                        if st.button("✏️ Modifier", key=f"edit_btn_{endoscope['id']}"):
+                        if st.button(" Modifier", key=f"edit_btn_{endoscope['id']}"):
                             st.session_state[edit_key] = True
                             st.rerun()
 
-                        if st.button("🗑️ Supprimer", key=f"delete_btn_{endoscope['id']}", type="secondary"):
+                        if st.button(" Supprimer", key=f"delete_btn_{endoscope['id']}", type="secondary"):
                             if db.delete_endoscope(endoscope['id']):
-                                st.success("✅ Endoscope supprimé avec succès!")
+                                st.success(" Endoscope supprimé avec succès!")
                                 st.rerun()
                             else:
-                                st.error("❌ Erreur lors de la suppression.")
+                                st.error(" Erreur lors de la suppression.")
 
                     with col3:
                         # Display QR Code
@@ -761,20 +775,20 @@ def show_biomedical_interface():
                                                         
                             col_f1, col_f2 = st.columns(2)
                             with col_f1:
-                                if st.form_submit_button("💾 Mettre à jour"):
+                                if st.form_submit_button(" Mettre à jour"):
                                     update_data = {
                                         'designation': new_designation, 'marque': new_marque, 'modele': new_modele,
                                         'numero_serie': new_numero_serie, 'etat': new_etat,
                                         'observation': new_observation, 'localisation': new_localisation
                                     }
                                     if db.update_endoscope(endoscope['id'], **update_data):
-                                        st.success("✅ Endoscope mis à jour!")
+                                        st.success("Endoscope mis à jour!")
                                         st.session_state.pop(edit_key, None)
                                         st.rerun()
                                     else:
-                                        st.error("❌ Erreur lors de la mise à jour.")
+                                        st.error("Erreur lors de la mise à jour.")
                             with col_f2:
-                                if st.form_submit_button("❌ Annuler"):
+                                if st.form_submit_button("Annuler"):
                                     st.session_state.pop(edit_key, None)
                                     st.rerun()
         else:
@@ -795,11 +809,11 @@ def show_biomedical_interface():
             if submitted:
                 if all([designation, marque, modele, numero_serie, localisation]):
                     if db.add_endoscope(designation, marque, modele, numero_serie, etat, observation, localisation, get_username()):
-                        st.success("✅ Endoscope ajouté avec succès!")
+                        st.success(" Endoscope ajouté avec succès!")
                     else:
-                        st.error("❌ Erreur: Numéro de série déjà existant.")
+                        st.error(" Erreur: Numéro de série déjà existant.")
                 else:
-                    st.error("❌ Veuillez remplir tous les champs obligatoires (*)")
+                    st.error(" Veuillez remplir tous les champs obligatoires (*)")
 
 @require_role(['sterilisation', 'biomedical'])
 def show_sterilization_interface():
@@ -813,7 +827,7 @@ def show_sterilization_interface():
         endoscopes_df = db.get_all_endoscopes()
         
         if endoscopes_df.empty:
-            st.warning("⚠️ Aucun endoscope n'est disponible dans l'inventaire. Veuillez en ajouter un avant de créer un rapport.")
+            st.warning(" Aucun endoscope n'est disponible dans l'inventaire. Veuillez en ajouter un avant de créer un rapport.")
             return
 
         with st.form("sterilisation_report_form", clear_on_submit=True):
@@ -927,7 +941,7 @@ def show_sterilization_interface():
             if not steril_reports.empty:
                 st.write(f"**Rapports trouvés: {len(steril_reports)}**")
                 for idx, report in steril_reports.iterrows():
-                    with st.expander(f"📋 Rapport #{report['id']} - {report['endoscope']} ({report['date_desinfection']})"):
+                    with st.expander(f"Rapport #{report['id']} - {report['endoscope']} ({report['date_desinfection']})"):
                         col1, col2 = st.columns([3, 1])
                         with col1:
                             st.write(f"**Opérateur:** {report['nom_operateur']}")
@@ -947,18 +961,18 @@ def show_sterilization_interface():
                             can_modify = db.can_user_modify_sterilisation_report(get_user_role(), report['id'], get_username())
                             if can_modify:
                                 edit_key = f"edit_steril_{report['id']}"
-                                if st.button("✏️ Modifier", key=f"edit_btn_steril_{report['id']}"):
+                                if st.button(" Modifier", key=f"edit_btn_steril_{report['id']}"):
                                     st.session_state[edit_key] = True
                                     st.rerun()
-                                if st.button("🗑️ Supprimer", key=f"del_btn_steril_{report['id']}"):
+                                if st.button(" Supprimer", key=f"del_btn_steril_{report['id']}"):
                                     try:
                                         if db.delete_sterilisation_report(report['id']):
-                                            st.success("✅ Rapport supprimé avec succès!")
+                                            st.success(" Rapport supprimé avec succès!")
                                             st.rerun()
                                         else:
-                                            st.error("❌ Erreur lors de la suppression du rapport")
+                                            st.error("Erreur lors de la suppression du rapport")
                                     except Exception as e:
-                                        st.error(f"❌ Erreur lors de la suppression: {str(e)}")
+                                        st.error(f" Erreur lors de la suppression: {str(e)}")
                             else:
                                 st.info("Lecture seule")
                         edit_key = f"edit_steril_{report['id']}"
@@ -979,7 +993,7 @@ def show_sterilization_interface():
                                 new_type_acte = st.text_input("Type d'acte*", value=report['type_acte'])
                                 new_etat_endoscope = st.selectbox("État de l'endoscope*", ['fonctionnel', 'en panne'], index=0 if report['etat_endoscope']=='fonctionnel' else 1)
                                 new_nature_panne = st.text_area("Nature de la panne*", value=report['nature_panne'] if report['etat_endoscope']=='en panne' else '') if new_etat_endoscope=='en panne' else None
-                                if st.form_submit_button("💾 Enregistrer les modifications"):
+                                if st.form_submit_button("Enregistrer les modifications"):
                                     try:
                                         # Validate required fields
                                         required_fields = [new_nom_operateur, new_endoscope, new_numero_serie, 
@@ -987,11 +1001,11 @@ def show_sterilization_interface():
                                                          new_heure_debut, new_heure_fin]
                                         
                                         if not all(required_fields):
-                                            st.error("❌ Veuillez remplir tous les champs obligatoires (*)")
+                                            st.error(" Veuillez remplir tous les champs obligatoires (*)")
                                         elif new_etat_endoscope == 'en panne' and not new_nature_panne:
-                                            st.error("❌ Veuillez spécifier la nature de la panne")
+                                            st.error(" Veuillez spécifier la nature de la panne")
                                         elif ":" not in new_heure_debut or ":" not in new_heure_fin:
-                                            st.error("❌ Format d'heure invalide. Utilisez HH:MM (ex: 14:30)")
+                                            st.error("Format d'heure invalide. Utilisez HH:MM (ex: 14:30)")
                                         else:
                                             update_fields = {
                                                 'nom_operateur': new_nom_operateur,
@@ -1012,14 +1026,14 @@ def show_sterilization_interface():
                                             }
                                             
                                             if db.update_sterilisation_report(report['id'], **update_fields):
-                                                st.success("✅ Rapport modifié avec succès!")
+                                                st.success("Rapport modifié avec succès!")
                                                 st.session_state.pop(edit_key, None)
                                                 st.rerun()
                                             else:
-                                                st.error("❌ Erreur lors de la modification du rapport.")
+                                                st.error(" Erreur lors de la modification du rapport.")
                                     except Exception as e:
-                                        st.error(f"❌ Erreur lors de la modification: {str(e)}")
-                            if st.button("❌ Annuler la modification", key=f"cancel_edit_{report['id']}"):
+                                        st.error(f" Erreur lors de la modification: {str(e)}")
+                            if st.button(" Annuler la modification", key=f"cancel_edit_{report['id']}"):
                                 st.session_state.pop(edit_key, None)
                                 st.rerun()
             else:
@@ -1070,7 +1084,7 @@ def show_archives_interface():
             st.dataframe(filtered_steril.drop(columns=['procedure_medicale'], errors='ignore'), use_container_width=True)
             
             # Single PDF Download Button
-            if st.button("📄 Télécharger Rapport PDF", key="download_pdf_steril", type="primary"):
+            if st.button(" Télécharger Rapport PDF", key="download_pdf_steril", type="primary"):
                 try:
                     with st.spinner("Génération du rapport PDF en cours..."):
                         # Prepare data for PDF
@@ -1085,15 +1099,15 @@ def show_archives_interface():
                         
                         # Download button
                         st.download_button(
-                            label="💾 Télécharger le Rapport PDF",
+                            label="Télécharger le Rapport PDF",
                             data=pdf_bytes,
                             file_name=f"rapport_sterilisation_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf",
                             mime="application/pdf",
                             key="download_steril_final"
                         )
-                        st.success("✅ Rapport PDF généré avec succès!")
+                        st.success(" Rapport PDF généré avec succès!")
                 except Exception as e:
-                    st.error(f"❌ Erreur lors de la génération du PDF: {str(e)}")
+                    st.error(f" Erreur lors de la génération du PDF: {str(e)}")
 
     # --- Tab 2: Inventory History ---
     if user_role in ['biomedical', 'admin']:
@@ -1171,7 +1185,7 @@ def show_archives_interface():
                     )
                 
                 # Affichage du nombre de résultats
-                st.info(f"📊 Affichage de {len(filtered_inventory)} endoscope(s) sur {len(inventory_df)} total")
+                st.info(f"Affichage de {len(filtered_inventory)} endoscope(s) sur {len(inventory_df)} total")
                 
                 display_inventory = filtered_inventory.copy()
 
@@ -1193,7 +1207,7 @@ def show_archives_interface():
 
                 
                 # Single PDF Download Button for Inventory (avec données filtrées)
-                if st.button("📄 Télécharger Rapport Inventaire PDF", key="download_pdf_inventory", type="primary"):
+                if st.button(" Télécharger Rapport Inventaire PDF", key="download_pdf_inventory", type="primary"):
                     try:
                         with st.spinner("Génération du rapport d'inventaire PDF en cours..."):
                             # Utiliser les données filtrées pour le PDF
@@ -1207,15 +1221,15 @@ def show_archives_interface():
                                 "inventaire"
                             )
                             st.download_button(
-                                label="💾 Télécharger le Rapport Inventaire PDF",
+                                label="Télécharger le Rapport Inventaire PDF",
                                 data=pdf_bytes,
                                 file_name=f"rapport_inventaire_filtre_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf",
                                 mime="application/pdf",
                                 key="download_inventory_final"
                             )
-                            st.success("✅ Rapport d'inventaire PDF généré avec succès!")
+                            st.success("Rapport d'inventaire PDF généré avec succès!")
                     except Exception as e:
-                        st.error(f"❌ Erreur lors de la génération du PDF: {str(e)}")
+                        st.error(f"Erreur lors de la génération du PDF: {str(e)}")
             else:
                 st.info("Aucun endoscope dans l'inventaire.")
 
